@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Active Assessment Room</title>
+  <title>Active Assessment Room - SECURE</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
       background-color: #f4f4f9; 
@@ -24,6 +24,8 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
       z-index: 1000;
       flex-shrink: 0;
+      display: flex;
+      justify-content: space-around;
     }
     #form-container { 
       flex-grow: 1; 
@@ -31,6 +33,7 @@
       background-color: #f0ebf8;
       display: flex;
       justify-content: center;
+      transition: filter 0.3s;
     }
     iframe { 
       width: 100%; 
@@ -38,33 +41,77 @@
       height: 100%; 
       border: none; 
     }
+    /* Fullscreen Overlay Prompt */
+    #fullscreen-blocker {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.95);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      text-align: center;
+      padding: 20px;
+    }
+    .secure-btn {
+      background: #3bb75e; color: white; border: none; padding: 15px 30px;
+      font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px;
+    }
   </style>
 </head>
-<body>
+<body oncontextmenu="return false;"> <!-- Blocks Right-Click completely -->
 
-  <div id="timer-bar">Time Remaining: <span id="clock">30:00</span></div>
+  <!-- Block screen until they agree to Fullscreen Proctoring -->
+  <div id="fullscreen-blocker">
+    <h2>🔒 Secure Proctoring Environment</h2>
+    <p style="margin-top:10px; max-width:500px; color:#ccc;">This UEW Master's assessment requires Fullscreen Mode. Switching tabs, exiting fullscreen, or minimizing this window will result in automatic time penalties.</p>
+    <button class="secure-btn" onclick="enterFullscreen()">Enter Secure Exam Mode</button>
+  </div>
+
+  <div id="timer-bar">
+    <div>⚠️ Strikes: <span id="strike-count">0</span>/3</div>
+    <div>Time Remaining: <span id="clock">30:00</span></div>
+  </div>
+  
   <div id="form-container">
     <iframe id="google-form" src="https://docs.google.com/forms/d/e/1FAIpQLSeNhJ51f7x94q7oUzjER7dTb9rbHPJhBW0CPnFD8B1Bkjze8Q/viewform?embedded=true" frameborder="0" marginheight="0" marginwidth="0">Loading Form...</iframe>
   </div>
 
   <script>
     let countdown;
+    let strikes = 0;
 
-    window.onload = function() {
+    // Prevent Copying (Ctrl+C / Cmd+C) & Prevent Inspect Element
+    document.addEventListener('keydown', function(e) {
+      if (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'u' || e.key === 'i')) {
+        e.preventDefault();
+        alert("Action Prohibited: Copy/Paste and View-Source are disabled.");
+      }
+    });
+
+    function enterFullscreen() {
+      let element = document.documentElement;
+      if (element.requestFullscreen) element.requestFullscreen();
+      else if (element.mozRequestFullScreen) element.mozRequestFullScreen();
+      else if (element.webkitRequestFullscreen) element.webkitRequestFullscreen();
+      else if (element.msRequestFullscreen) element.msRequestFullscreen();
+      
+      document.getElementById('fullscreen-blocker').style.display = 'none';
+      startExamClock();
+    }
+
+    function startExamClock() {
       let isAuth = localStorage.getItem('quiz_authorized');
-      let endTime = localStorage.getItem('quiz_end_time');
+      let endTime = parseInt(localStorage.getItem('quiz_end_time'));
       let now = Math.floor(Date.now() / 1000);
 
-      // SECURITY GATE: Kick them out back to index.html if they haven't paid or time ran out
       if (isAuth !== 'true' || !endTime || (endTime - now) <= 0) {
-        alert("Access Denied: Please complete your entry payment first.");
-        localStorage.removeItem('quiz_authorized');
-        localStorage.removeItem('quiz_end_time');
-        window.location.href = "index.html";
+        kickStudent("Access Denied: Invalid session or session expired.");
         return;
       }
 
-      // If authorized, execute the background clock
       countdown = setInterval(function() {
         let current = Math.floor(Date.now() / 1000);
         let remain = endTime - current;
@@ -75,14 +122,55 @@
         if (remain >= 0) {
           document.getElementById('clock').innerHTML = mins + "m " + (secs < 10 ? "0" : "") + secs + "s";
         } else {
-          // Lock the screen when the clock hits absolute zero
           clearInterval(countdown);
-          localStorage.removeItem('quiz_authorized');
-          localStorage.removeItem('quiz_end_time');
-          document.body.innerHTML = "<div style='display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:white; color:#d93025; text-align:center; padding:20px;'><h1>🛑 Session Expired</h1><p style='color:#666; margin-top:10px; font-size:18px;'>Your 30-minute testing window has officially closed.</p></div>";
+          kickStudent("🛑 Session Expired. Your 30-minute testing window has ended.");
         }
       }, 1000);
-    };
+    }
+
+    // TAB SWITCH DETECTOR (Triggers if they leave the tab or minimize browser)
+    document.addEventListener("visibilitychange", function() {
+      if (document.hidden) {
+        triggerStrike("Tab switch/window minimization detected!");
+      }
+    });
+
+    // FULLSCREEN EXIT DETECTOR (Triggers if they press Escape to leave fullscreen)
+    document.addEventListener('fullscreenchange', handleFullscreenExit);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenExit);
+    document.addEventListener('mozfullscreenchange', handleFullscreenExit);
+    document.addEventListener('MSFullscreenChange', handleFullscreenExit);
+
+    function handleFullscreenExit() {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
+        // If they exit fullscreen, bring back the blocker cover immediately until they re-engage
+        document.getElementById('fullscreen-blocker').style.display = 'flex';
+        triggerStrike("Exiting fullscreen mode is prohibited!");
+      }
+    }
+
+    function triggerStrike(reason) {
+      strikes++;
+      document.getElementById('strike-count').innerHTML = strikes;
+      
+      // Penalty: Deduct 2 minutes (120 seconds) from their stored end time
+      let currentEndTime = parseInt(localStorage.getItem('quiz_end_time'));
+      localStorage.setItem('quiz_end_time', currentEndTime - 120);
+
+      if (strikes >= 3) {
+        clearInterval(countdown);
+        kickStudent("🛑 Disqualified: Maximum security strikes exceeded (3/3). You left the testing terminal.");
+      } else {
+        alert("PROCTOR WARNING:\n" + reason + "\n\nStrike " + strikes + "/3 issued. 2 Minutes have been deducted from your exam timer as a penalty.");
+      }
+    }
+
+    function kickStudent(message) {
+      localStorage.removeItem('quiz_authorized');
+      localStorage.removeItem('quiz_end_time');
+      document.body.innerHTML = "<div style='display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:white; color:#d93025; text-align:center; padding:20px;'><h1>" + message + "</h1><p style='color:#666; margin-top:10px; font-size:18px;'>This incident has been logged. Return to the main gate to pay and restart if applicable.</p></div>";
+      setTimeout(() => { window.location.href = "index.html"; }, 5000);
+    }
   </script>
 </body>
 </html>
