@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Assessment Portal - Payment</title>
+  <script src="https://js.paystack.co/v1/inline.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      background-color: #f4f4f9; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      min-height: 100vh; 
+      padding: 20px;
+    }
+    .box { 
+      background: white; 
+      padding: 35px 25px; 
+      border-radius: 8px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+      max-width: 450px; 
+      width: 100%; 
+      text-align: center;
+    }
+    h2 { color: #333; margin-bottom: 8px; font-size: 24px; }
+    p { color: #666; margin-bottom: 25px; font-size: 15px; line-height: 1.4; }
+    .input-group { text-align: left; margin-bottom: 20px; }
+    label { display: block; font-size: 14px; color: #555; margin-bottom: 6px; font-weight: 500; }
+    input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
+    .btn { 
+      background: #3bb75e; 
+      color: white; 
+      padding: 15px; 
+      border: none; 
+      font-size: 17px; 
+      font-weight: bold; 
+      width: 100%; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #2e964b; }
+    .info-tag { font-size: 12px; color: #999; margin-top: 15px; display: block; }
+  </style>
+</head>
+<body>
+
+  <div class="box">
+    <h2>Exam Access Portal</h2>
+    <p>Please enter your email address to pay the <strong>GH₵22.00</strong> access fee and unlock your 30-minute timed quiz.</p>
+    
+    <div class="input-group">
+      <label for="email">Student Email Address</label>
+      <input type="email" id="email" placeholder="student@example.com" required>
+    </div>
+
+    <button class="btn" onclick="payFee()">Pay & Start Assessment</button>
+    <span class="info-tag">Secured by Paystack. The 30-minute timer starts right after payment.</span>
+  </div>
+
+  <script>
+    function payFee() {
+      const emailField = document.getElementById('email').value;
+      
+      if (!emailField || !emailField.includes('@')) {
+        alert("Please enter a valid email address to proceed.");
+        return;
+      }
+
+      const handler = PaystackPop.setup({
+        key: 'pk_live_1e4fb7804fc8d0d99f0798615138a5f96aecf3be', // <-- PASTE YOUR PAYSTACK PUBLIC KEY HERE
+        email: emailField,
+        amount: 2200, // 2200 pesewas = GH₵22.00
+        currency: 'GHS',
+        ref: 'quiz_' + Math.floor((Math.random() * 1000000000) + 1),
+        callback: function(response) {
+          // Payment cleared! Drop the validation tokens into local browser memory
+          let startTimestamp = Math.floor(Date.now() / 1000);
+          localStorage.setItem('quiz_authorized', 'true');
+          localStorage.setItem('quiz_end_time', startTimestamp + (30 * 60)); // Sets 30 mins
+          
+          // Redirect smoothly to the exam page in the same folder
+          window.location.href = "quiz.html";
+        },
+        onClose: function() {
+          alert('Transaction canceled. Payment is required to open the assessment.');
+        }
+      });
+      
+      handler.openIframe();
+    }
+  </script>
+</body>
+</html>
