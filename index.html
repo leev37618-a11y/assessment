@@ -112,8 +112,8 @@
       </ul>
       
       <div class="input-group">
-        <label for="email">Student Email Address</label>
-        <input type="email" id="email" placeholder="enter your student email profile..." required>
+        <label for="email">Email Address</label>
+        <input type="email" id="email" placeholder="enter your email address!!!" required>
       </div>
 
       <button class="btn" onclick="payFee()">Pay GH₵22.00 & Start Exam</button>
@@ -126,7 +126,7 @@
       const emailField = document.getElementById('email').value;
       
       if (!emailField || !emailField.includes('@')) {
-        alert("Please enter a valid student email address to proceed.");
+        alert("Please enter a valid email address to proceed.");
         return;
       }
 
