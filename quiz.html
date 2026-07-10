@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Active Assessment Room</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      background-color: #f4f4f9; 
+      display: flex; 
+      flex-direction: column; 
+      height: 100vh;
+      overflow: hidden;
+    }
+    #timer-bar { 
+      background: #673ab7; 
+      color: white; 
+      padding: 12px; 
+      text-align: center; 
+      font-size: clamp(16px, 2.5vw, 22px); 
+      font-weight: bold; 
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+      z-index: 1000;
+      flex-shrink: 0;
+    }
+    #form-container { 
+      flex-grow: 1; 
+      width: 100%;
+      background-color: #f0ebf8;
+      display: flex;
+      justify-content: center;
+    }
+    iframe { 
+      width: 100%; 
+      max-width: 900px; 
+      height: 100%; 
+      border: none; 
+    }
+  </style>
+</head>
+<body>
+
+  <div id="timer-bar">Time Remaining: <span id="clock">30:00</span></div>
+  <div id="form-container">
+    <iframe id="google-form" src="https://docs.google.com/forms/d/e/1FAIpQLSeNhJ51f7x94q7oUzjER7dTb9rbHPJhBW0CPnFD8B1Bkjze8Q/viewform?embedded=true" frameborder="0" marginheight="0" marginwidth="0">Loading Form...</iframe>
+  </div>
+
+  <script>
+    let countdown;
+
+    window.onload = function() {
+      let isAuth = localStorage.getItem('quiz_authorized');
+      let endTime = localStorage.getItem('quiz_end_time');
+      let now = Math.floor(Date.now() / 1000);
+
+      // SECURITY GATE: Kick them out back to index.html if they haven't paid or time ran out
+      if (isAuth !== 'true' || !endTime || (endTime - now) <= 0) {
+        alert("Access Denied: Please complete your entry payment first.");
+        localStorage.removeItem('quiz_authorized');
+        localStorage.removeItem('quiz_end_time');
+        window.location.href = "index.html";
+        return;
+      }
+
+      // If authorized, execute the background clock
+      countdown = setInterval(function() {
+        let current = Math.floor(Date.now() / 1000);
+        let remain = endTime - current;
+        
+        let mins = Math.floor(remain / 60);
+        let secs = Math.floor(remain % 60);
+        
+        if (remain >= 0) {
+          document.getElementById('clock').innerHTML = mins + "m " + (secs < 10 ? "0" : "") + secs + "s";
+        } else {
+          // Lock the screen when the clock hits absolute zero
+          clearInterval(countdown);
+          localStorage.removeItem('quiz_authorized');
+          localStorage.removeItem('quiz_end_time');
+          document.body.innerHTML = "<div style='display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:white; color:#d93025; text-align:center; padding:20px;'><h1>🛑 Session Expired</h1><p style='color:#666; margin-top:10px; font-size:18px;'>Your 30-minute testing window has officially closed.</p></div>";
+        }
+      }, 1000);
+    };
+  </script>
+</body>
+</html>
